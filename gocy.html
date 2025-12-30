@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreshMart - Customer</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root { --primary: #2e7d32; --secondary: #ffab00; --bg-light: #f4f6f8; --text-dark: #333; --white: #ffffff; --danger: #d32f2f; --border-radius: 12px; --shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg-light); color: var(--text-dark); height: 100vh; display: flex; flex-direction: column; }
+        
+        header { background: var(--white); padding: 15px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+        h1 { font-size: 1.4rem; color: var(--primary); font-weight: 700; }
+        
+        main { flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 100px; }
+        
+        .search-bar { margin-bottom: 15px; }
+        .search-bar input { width: 100%; padding: 14px; border: none; border-radius: var(--border-radius); box-shadow: var(--shadow); font-size: 1rem; outline: none; }
+        
+        .category-tabs { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 15px; margin-bottom: 10px; scrollbar-width: none; }
+        .category-tabs::-webkit-scrollbar { display: none; }
+        .cat-tab { padding: 10px 20px; background: var(--white); border-radius: 25px; white-space: nowrap; font-weight: 600; color: #777; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: 0.2s; }
+        .cat-tab.active { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(46, 125, 50, 0.3); }
+        
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        .product-card { background: var(--white); border-radius: var(--border-radius); overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s; box-shadow: var(--shadow); }
+        .product-card.disabled { opacity: 0.6; filter: grayscale(1); }
+        .product-img { width: 100%; height: 130px; object-fit: cover; background: #eee; }
+        .product-info { padding: 12px; flex: 1; display: flex; flex-direction: column; }
+        .product-name { font-weight: 600; margin-bottom: 5px; font-size: 0.95rem; color: #222; }
+        .product-price { color: var(--primary); font-weight: 700; margin-bottom: 10px; font-size: 1.1rem; }
+        
+        .product-actions { margin-top: auto; display: flex; align-items: center; justify-content: space-between; }
+        .qty-control { display: flex; align-items: center; gap: 10px; background: #f0f0f0; padding: 2px; border-radius: 8px; }
+        .qty-btn { width: 30px; height: 30px; border-radius: 6px; border: none; background: white; cursor: pointer; font-weight: bold; color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        
+        .floating-cart { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; background: var(--white); padding: 15px 20px; border-radius: 50px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: flex; justify-content: space-between; align-items: center; z-index: 100; border: 1px solid rgba(0,0,0,0.05); }
+        .cart-info { display: flex; flex-direction: column; }
+        .cart-total { font-size: 1.1rem; font-weight: 800; color: var(--text-dark); }
+        .cart-count { font-size: 0.8rem; color: #777; }
+        .btn-checkout { background: var(--primary); color: white; padding: 10px 25px; border-radius: 30px; border: none; font-weight: 700; cursor: pointer; box-shadow: 0 4px 15px rgba(46,125,50,0.4); }
+        
+        /* Modal Styles */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(5px); }
+        .modal { background: white; padding: 30px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.2); animation: slideUp 0.3s; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .order-summary-box { background: #f9f9f9; padding: 15px; border-radius: 10px; text-align: left; margin-bottom: 20px; max-height: 150px; overflow-y: auto; }
+        .order-summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; }
+        .btn-modal-cancel { background: transparent; color: #666; border: 1px solid #ddd; padding: 10px; border-radius: 10px; width: 40%; cursor: pointer; }
+        .btn-modal-confirm { background: var(--primary); color: white; padding: 10px; border-radius: 10px; width: 55%; cursor: pointer; border: none; font-weight: 600; }
+        .hidden { display: none !important; }
+        
+        /* Success Message Styling */
+        .order-id-display { font-size: 1.5rem; font-weight: 800; color: var(--primary); margin: 10px 0; letter-spacing: 1px; }
+        .pickup-msg { font-size: 1.1rem; color: #555; margin-bottom: 25px; }
+    </style>
+</head>
+<body>
+    <!-- Header with Gradient Background -->
+    <header style="background: linear-gradient(135deg, #2e7d32, #1b5e20); color: white;">
+        <h1 style="color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.2);">FreshMart</h1>
+        <div style="font-size:0.8rem; color: #e0e0e0; background: rgba(255,255,255,0.15); padding: 4px 10px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2);">Welcome Guest</div>
+    </header>
+    
+    <main>
+        <div class="search-bar"><input type="text" id="search-input" placeholder="Search fruits, vegetables..."></div>
+        <div class="category-tabs" id="category-filters">
+            <div class="cat-tab active" data-cat="All">All</div>
+            <div class="cat-tab" data-cat="Fruits">Fruits</div>
+            <div class="cat-tab" data-cat="Vegetables">Vegetables</div>
+            <div class="cat-tab" data-cat="Dairy">Dairy</div>
+            <div class="cat-tab" data-cat="Bakery">Bakery</div>
+        </div>
+        <div class="product-grid" id="product-grid">Loading...</div>
+    </main>
+
+    <!-- Floating Cart -->
+    <div class="floating-cart" id="floating-cart" style="display:none;">
+        <div class="cart-info">
+            <span class="cart-total" id="cart-total-display">₹0.00</span>
+            <span class="cart-count" id="cart-count-display">0 items</span>
+        </div>
+        <button class="btn-checkout" onclick="openCheckout()">Checkout</button>
+    </div>
+
+    <!-- Checkout Modal (No Pay Flow) -->
+    <div id="checkout-modal" class="modal-overlay hidden">
+        <!-- Content injected by JS -->
+        <div class="modal" id="modal-content-area">
+            <h2>Review Order</h2>
+            <div class="order-summary-box" id="checkout-summary"></div>
+            <h3 style="margin-bottom:20px;">Total: <span id="checkout-total">₹0.00</span></h3>
+            <div style="display:flex; justify-content:space-between; gap:10px;">
+                <button class="btn-modal-cancel" onclick="closeModal('checkout-modal')">Cancel</button>
+                <button class="btn-modal-confirm" onclick="placeOrder()">Place Order</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyDrbVUUk2hH2_2LaWvaRSQIGqSbQnsC5pQ", authDomain: "kiosk-4d556.firebaseapp.com", projectId: "kiosk-4d556", storageBucket: "kiosk-4d556.firebasestorage.app", messagingSenderId: "15848211380", appId: "1:15848211380:web:0afd9de1f69ea490aba8e1", measurementId: "G-CBRRT8JFQV" };
+        firebase.initializeApp(firebaseConfig); const db = firebase.firestore();
+        
+        const DB = {
+            init: async () => { 
+                try {
+                    const s = await db.collection('items').limit(1).get(); 
+                    if(s.empty){ 
+                        const d = [
+                            {id:1,name:'Red Apple',category:'Fruits',price:1.2,available:true},
+                            {id:2,name:'Banana',category:'Fruits',price:0.8,available:true},
+                            {id:3,name:'Milk',category:'Dairy',price:3.5,available:true},
+                            {id:4,name:'Cheese',category:'Dairy',price:5.0,available:true},
+                            {id:5,name:'Bread',category:'Bakery',price:4.5,available:true},
+                            {id:6,name:'Broccoli',category:'Vegetables',price:1.8,available:true},
+                            {id:7,name:'Carrots',category:'Vegetables',price:2.0,available:true},
+                            {id:8,name:'Croissant',category:'Bakery',price:2.5,available:false}
+                        ]; 
+                        const b=db.batch(); 
+                        d.forEach(i=>b.set(db.collection('items').doc(String(i.id)),i)); 
+                        await b.commit(); 
+                    }
+                } catch(e) { console.log(e); }
+            },
+            getItems: async ()=>(await db.collection('items').get()).docs.map(d=>d.data()),
+            addOrder: async o=>await db.collection('orders').add({...o, timestamp:firebase.firestore.FieldValue.serverTimestamp()})
+        };
+        
+        const app = { 
+            state: { cart:{}, filter:'All', search:'' }, 
+            updateCart: (id, c)=>{ 
+                if(!app.state.cart[id]) app.state.cart[id]=0; 
+                app.state.cart[id]+=c; 
+                if(app.state.cart[id]<=0) delete app.state.cart[id]; 
+                app.renderCustomerView(); 
+            } 
+        };
+
+        // --- OPEN CHECKOUT (Shows Summary) ---
+        function openCheckout(){ 
+            const m=document.getElementById('checkout-modal'); 
+            const content=document.getElementById('modal-content-area');
+            
+            // Reset content to standard checkout form
+            content.innerHTML = `
+                <h2>Review Order</h2>
+                <div class="order-summary-box" id="checkout-summary"></div>
+                <h3 style="margin-bottom:20px;">Total: <span id="checkout-total">₹0.00</span></h3>
+                <div style="display:flex; justify-content:space-between; gap:10px;">
+                    <button class="btn-modal-cancel" onclick="closeModal('checkout-modal')">Cancel</button>
+                    <button class="btn-modal-confirm" onclick="placeOrder()">Place Order</button>
+                </div>
+            `;
+            
+            const s=document.getElementById('checkout-summary'); 
+            const t=document.getElementById('checkout-total'); 
+            s.innerHTML=''; 
+            let tot=0; 
+            DB.getItems().then(its=>{ 
+                for(const[id,qty] of Object.entries(app.state.cart)){ 
+                    const i=its.find(x=>x.id==id); 
+                    if(i){ 
+                        const l=i.price*qty; 
+                        tot+=l; 
+                        s.innerHTML+=`<div class="order-summary-row"><span>${qty}x ${i.name}</span><span>₹${l.toFixed(2)}</span></div>`; 
+                    } 
+                } 
+                t.innerText='₹'+tot.toFixed(2); 
+                m.classList.remove('hidden'); 
+            }); 
+        }
+
+        // --- PLACE ORDER (New Logic: Show Pickup Message) ---
+        async function placeOrder() {
+            try {
+                let its = await DB.getItems(); 
+                let oIt=[], tot=0; 
+                for(const[id,qty] of Object.entries(app.state.cart)){ 
+                    let i=its.find(x=>x.id==id); 
+                    if(i){ 
+                        oIt.push({name:i.name,qty,price:i.price}); 
+                        tot+=i.price*qty; 
+                    } 
+                } 
+                
+                if(oIt.length === 0) {
+                    alert("Your cart is empty!");
+                    return;
+                }
+
+                // Generate Order ID
+                let orderId = 'ORD-'+Math.floor(1000+Math.random()*9000);
+                
+                // Save to Database
+                await DB.addOrder({
+                    id: orderId, 
+                    items:oIt, 
+                    total:tot, 
+                    status:'Received'
+                }); 
+
+                // Clear Cart
+                app.state.cart={}; 
+                app.renderCustomerView();
+
+                // UPDATE MODAL TO SHOW SUCCESS & PICKUP MESSAGE
+                const content = document.getElementById('modal-content-area');
+                content.innerHTML = `
+                    <h2 style="color:var(--primary)">Order Placed!</h2>
+                    <p class="pickup-msg">Please pick up your order at the counter.</p>
+                    <div class="order-id-display">#${orderId}</div>
+                    <button class="btn btn-primary" onclick="closeModal('checkout-modal')" style="width:100%; padding:12px;">Done</button>
+                `;
+
+            } catch (error) {
+                console.error("Order Error:", error);
+                alert("Order Failed: " + error.message);
+            }
+        }
+
+        app.renderCustomerView = async ()=>{
+            const g = document.getElementById('product-grid'); g.innerHTML=''; const its = await DB.getItems();
+            let t=0, c=0; for(const[id,qty] of Object.entries(app.state.cart)){ const i=its.find(x=>x.id==id); if(i){ t+=i.price*qty; c+=qty; }}
+            document.getElementById('floating-cart').style.display=c>0?'flex':'none'; 
+            document.getElementById('cart-total-display').innerText='₹'+t.toFixed(2); 
+            document.getElementById('cart-count-display').innerText=c+' items';
+            its.forEach(i=>{
+                if(app.state.filter!=='All' && i.category!==app.state.filter)return;
+                if(!i.name.toLowerCase().includes(app.state.search))return;
+                const q=app.state.cart[i.id]||0;
+                const imgUrl = i.image || `https://picsum.photos/seed/${i.name.replace(/\s/g,'')}/300/200`;
+                g.innerHTML+=`<div class="product-card ${!i.available?'disabled':''}"><img src="${imgUrl}" class="product-img"><div class="product-info"><div class="product-name">${i.name}</div><div class="product-price">₹${i.price.toFixed(2)}</div><div class="product-actions">${i.available?`<div class="qty-control"><button class="qty-btn" onclick="app.updateCart(${i.id},-1)">-</button><span>${q}</span><button class="qty-btn" onclick="app.updateCart(${i.id},1)">+</button></div>`:'<span style="color:red; font-size:0.8rem;">Out of Stock</span>'}</div></div>`;
+            });
+        };
+        (async()=>{await DB.init(); await app.renderCustomerView();})();
+        document.getElementById('search-input').addEventListener('input',e=>{ app.state.search=e.target.value.toLowerCase(); app.renderCustomerView(); });
+        document.querySelectorAll('.cat-tab').forEach(t=>t.addEventListener('click',e=>{ document.querySelectorAll('.cat-tab').forEach(x=>x.classList.remove('active')); e.target.classList.add('active'); app.state.filter=e.target.dataset.cat; app.renderCustomerView(); }));
+        function closeModal(id){ document.getElementById(id).classList.add('hidden'); }
+        document.getElementById('checkout-modal').addEventListener('click',e=>{if(e.target.id==='checkout-modal')closeModal('checkout-modal');});
+    </script>
+</body>
+</html>

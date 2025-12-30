@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreshMart - Staff</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root { --primary: #2e7d32; --secondary: #ffab00; --white: #ffffff; --danger: #d32f2f; --border-radius: 8px; --shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #f4f6f8; color: #333; height: 100vh; display: flex; flex-direction: column; }
+        
+        header { background: var(--white); padding: 15px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+        h1 { color: var(--primary); font-size: 1.5rem; }
+        
+        main { flex: 1; overflow-y: auto; padding: 20px; }
+        .orders-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        
+        .order-card { 
+            background: var(--white); 
+            border-radius: var(--border-radius); 
+            box-shadow: var(--shadow); 
+            padding: 20px; 
+            border-left: 6px solid #ccc; 
+            animation: fadeIn 0.3s; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+        
+        .order-card.status-Received { border-left-color: #f57c00; }
+        .order-card.status-Picking { border-left-color: #1976d2; }
+        .order-card.status-Ready { border-left-color: #388e3c; }
+        
+        .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .order-number { font-size: 1.2rem; font-weight: 800; color: #222; }
+        
+        .order-items-list { list-style: none; margin-bottom: 20px; flex: 1; }
+        .order-items-list li { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 1rem; }
+        
+        .badge { padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; color: white; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .order-footer { margin-top: auto; padding-top: 15px; border-top: 1px solid #eee; }
+        .total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 1.1rem; margin-bottom: 15px; }
+        
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn { 
+            padding: 12px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            transition: 0.2s; 
+            font-size: 0.9rem;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-primary { background-color: var(--primary); color: white ; }
+        .btn-secondary { background-color: var(--secondary); color: #333; }
+        .btn-outline { background: transparent; border: 1px solid #ccc; color: #666; }
+        .btn-full { grid-column: 1 / -1; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Staff Dashboard</h1>
+        <div style="font-size:0.9rem; color:#888;">Live Orders</div>
+    </header>
+    
+    <main>
+        <div class="orders-container" id="orders-list">
+            <div style="grid-column:1/-1; text-align:center; color:#aaa; margin-top:50px;">Waiting for orders...</div>
+        </div>
+    </main>
+
+    <script>
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = { 
+            apiKey: "AIzaSyDrbVUUk2hH2_2LaWvaRSQIGqSbQnsC5pQ", 
+            authDomain: "kiosk-4d556.firebaseapp.com", 
+            projectId: "kiosk-4d556", 
+            storageBucket: "kiosk-4d556.firebasestorage.app", 
+            messagingSenderId: "15848211380", 
+            appId: "1:15848211380:web:0afd9de1f69ea490aba8e1", 
+            measurementId: "G-CBRRT8JFQV" 
+        };
+        firebase.initializeApp(firebaseConfig); 
+        const db = firebase.firestore();
+        
+        // --- DATABASE ---
+        const DB = {
+            // Fixed: Added explicit error handling
+            listenOrders: (callback) => {
+                db.collection('orders')
+                .orderBy('timestamp', 'desc')
+                .onSnapshot(
+                    (snapshot) => {
+                        const orders = snapshot.docs.map(doc => ({
+                            firestoreId: doc.id,
+                            ...doc.data()
+                        }));
+                        callback(orders);
+                    },
+                    (error) => {
+                        console.error("Error loading orders:", error);
+                        // This alert will tell you exactly what is wrong
+                        alert("Failed to load orders: " + error.message + "\n\nPlease check your Firebase Rules.");
+                    }
+                );
+            },
+            updateOrderStatus: async (id, status) => {
+                await db.collection('orders').doc(id).update({status: status});
+            }
+        };
+
+        // --- BUTTON FUNCTION ---
+        async function changeStatus(firestoreId, newStatus) {
+            console.log("Updating:", firestoreId, newStatus);
+            try {
+                await DB.updateOrderStatus(firestoreId, newStatus);
+                console.log("Updated successfully");
+            } catch (error) {
+                console.error("Update failed:", error);
+                alert("Update Failed: " + error.message);
+            }
+        }
+
+        // --- RENDER LOGIC ---
+        const renderOrders = (orders)=>{
+            const c = document.getElementById('orders-list'); 
+            c.innerHTML='';
+            
+            if(orders.length===0){ 
+                c.innerHTML='<div style="grid-column:1/-1; text-align:center; color:#aaa; margin-top:50px;">No incoming orders.</div>'; 
+                return; 
+            }
+
+            orders.forEach(o=>{
+                let t = 'Just now';
+                if (o.timestamp) {
+                    t = new Date(o.timestamp.seconds * 1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+                }
+
+                const itHtml = o.items.map(i => 
+                    `<li><span>${i.qty}x ${i.name}</span><span>₹${(i.price*i.qty).toFixed(2)}</span></li>`
+                ).join('');
+
+                let btnHtml = '';
+                if(o.status==='Received') {
+                    btnHtml = `<button class="btn btn-secondary btn-full" onclick="changeStatus('${o.firestoreId}','Picking')">Start Picking</button>`;
+                } else if(o.status==='Picking') {
+                    btnHtml = `
+                        <button class="btn btn-outline" onclick="changeStatus('${o.firestoreId}','Received')">Undo</button>
+                        <button class="btn btn-primary" onclick="changeStatus('${o.firestoreId}','Ready')">Mark Ready</button>
+                    `;
+                } else if(o.status==='Ready') {
+                    btnHtml = `<button class="btn btn-outline btn-full" onclick="changeStatus('${o.firestoreId}','Picking')">Re-Open Order</button>`;
+                }
+                
+                c.innerHTML+=`
+                    <div class="order-card status-${o.status}">
+                        <div class="order-header">
+                            <span class="order-number">#${o.id}</span>
+                            <span class="badge status-${o.status}">${o.status}</span>
+                        </div>
+                        <div style="font-size:0.85rem; color:#888; margin-bottom:10px;">${t}</div>
+                        <ul class="order-items-list">${itHtml}</ul>
+                        <div class="order-footer">
+                            <div class="total-row"><span>Total</span><span>₹${o.total.toFixed(2)}</span></div>
+                            <div class="btn-group">${btnHtml}</div>
+                        </div>
+                    </div>
+                `;
+            });
+        };
+
+        // --- START LISTENER ---
+        DB.listenOrders(renderOrders);
+    </script>
+</body>
+</html>
