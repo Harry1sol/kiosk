@@ -1,37 +1,59 @@
+<!-- START OF FILE staff.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MittalMart - Staff</title>
+    <title>MittalMart - Kitchen</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <style>
-        /* (Styles kept same as previous) */
-        :root { --bg: #1e293b; --card-bg: #334155; --text-light: #f8fafc; --col-new: #f97316; --col-pick: #3b82f6; --col-done: #22c55e; }
+        :root { --bg: #1e293b; --text-light: #f8fafc; --col-new: #f97316; --col-pick: #3b82f6; --col-done: #22c55e; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
         body { background-color: var(--bg); color: var(--text-light); height: 100vh; display: flex; flex-direction: column; }
+        
         header { background: #0f172a; padding: 15px 30px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
         h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: 1px; color: #94a3b8; text-transform: uppercase; }
         .clock { font-weight: bold; font-family: monospace; font-size: 1.2rem; }
+        
         .board { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; padding: 20px; flex: 1; overflow: hidden; }
         .column { display: flex; flex-direction: column; gap: 15px; border-right: 1px solid #334155; padding-right: 20px; height: 100%; }
         .column:last-child { border: none; padding-right: 0; }
         .col-header { font-size: 1rem; font-weight: 800; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; text-transform: uppercase; }
         .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        
         .order-list { flex: 1; overflow-y: auto; padding-bottom: 50px; }
-        .order-list::-webkit-scrollbar { width: 6px; }
-        .order-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        
         .card { background: white; color: #1e293b; border-radius: 8px; padding: 15px; margin-bottom: 15px; animation: slideIn 0.3s ease-out; box-shadow: 0 4px 6px rgba(0,0,0,0.2); position: relative; border-left: 5px solid transparent; }
         @keyframes slideIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-        .card-header { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+        
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; padding-right: 25px; } /* Added padding-right for X button */
+        .order-meta { display: flex; flex-direction: column; }
         .order-id { font-weight: 800; font-size: 1.1rem; }
         .order-time { font-size: 0.8rem; color: #64748b; font-weight: 600; }
+        .table-badge { background: #1e293b; color: white; padding: 4px 8px; border-radius: 4px; font-weight: 700; font-size: 1rem; letter-spacing: 0.5px; }
+
         .items-ul { list-style: none; margin-bottom: 15px; }
         .items-ul li { display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 4px; font-weight: 600; }
         .qty-badge { background: #e2e8f0; padding: 2px 6px; border-radius: 4px; margin-right: 8px; font-size: 0.85rem; }
+        
+        /* Buttons */
         .action-btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: 800; cursor: pointer; text-transform: uppercase; font-size: 0.9rem; transition: 0.2s; }
         .action-btn:hover { opacity: 0.9; transform: scale(1.02); }
+        
+        /* Cancel Button */
+        .btn-cancel { 
+            position: absolute; top: 10px; right: 10px; 
+            width: 24px; height: 24px; 
+            background: #fee2e2; color: #ef4444; 
+            border: none; border-radius: 4px; 
+            font-weight: bold; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center;
+            transition: 0.2s;
+        }
+        .btn-cancel:hover { background: #ef4444; color: white; }
+
+        /* Status Colors */
         .col-new .dot { background: var(--col-new); } .col-new .card { border-left-color: var(--col-new); } .col-new .action-btn { background: var(--col-pick); color: white; }
         .col-pick .dot { background: var(--col-pick); } .col-pick .card { border-left-color: var(--col-pick); } .col-pick .action-btn { background: var(--col-done); color: white; }
         .col-ready .dot { background: var(--col-done); } .col-ready .card { border-left-color: var(--col-done); opacity: 0.8; } .col-ready .action-btn { background: #cbd5e1; color: #475569; }
@@ -39,23 +61,31 @@
 </head>
 <body>
     <header>
-        <h1>Fulfillment Center</h1>
-        <div class="clock" id="clock">12:00 PM</div>
+        <h1>Kitchen Display</h1>
+        <div class="clock" id="clock">--:--</div>
     </header>
     
     <main class="board">
         <div class="column col-new"><div class="col-header"><span class="dot"></span> Received</div><div class="order-list" id="list-received"></div></div>
-        <div class="column col-pick"><div class="col-header"><span class="dot"></span> Picking</div><div class="order-list" id="list-picking"></div></div>
-        <div class="column col-ready"><div class="col-header"><span class="dot"></span> Ready for Pickup</div><div class="order-list" id="list-ready"></div></div>
+        <div class="column col-pick"><div class="col-header"><span class="dot"></span> Cooking</div><div class="order-list" id="list-picking"></div></div>
+        <div class="column col-ready"><div class="col-header"><span class="dot"></span> Ready to Serve</div><div class="order-list" id="list-ready"></div></div>
     </main>
 
     <script>
         const firebaseConfig = { apiKey: "AIzaSyDrbVUUk2hH2_2LaWvaRSQIGqSbQnsC5pQ", authDomain: "kiosk-4d556.firebaseapp.com", projectId: "kiosk-4d556", storageBucket: "kiosk-4d556.firebasestorage.app", messagingSenderId: "15848211380", appId: "1:15848211380:web:0afd9de1f69ea490aba8e1", measurementId: "G-CBRRT8JFQV" };
         firebase.initializeApp(firebaseConfig); const db = firebase.firestore();
 
-        setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }, 1000);
+        // STORE CONFIG FOR PIN
+        let STORE_CONFIG = { adminPin: "1234" }; 
+        db.collection('settings').doc('storeConfig').onSnapshot(doc => { if(doc.exists) STORE_CONFIG = doc.data(); });
 
-        db.collection('orders').orderBy('timestamp', 'desc').onSnapshot(snap => {
+        setInterval(() => { 
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: true}); 
+        }, 1000);
+
+        db.collection('orders')
+          .orderBy('timestamp', 'desc')
+          .onSnapshot(snap => {
             const orders = snap.docs.map(d => ({ fid: d.id, ...d.data() }));
             renderBoard(orders);
         });
@@ -66,8 +96,8 @@
             document.getElementById('list-ready').innerHTML = '';
 
             orders.forEach(o => {
-                // FIX: If order is 'Completed', do not show it on board, but keep it in DB for revenue
-                if(o.status === 'Completed') return; 
+                // Filter out Completed AND Cancelled
+                if(o.status === 'Completed' || o.status === 'Cancelled') return; 
 
                 const html = createCard(o);
                 if(o.status === 'Received') document.getElementById('list-received').innerHTML += html;
@@ -77,17 +107,25 @@
         }
 
         function createCard(o) {
-            const time = o.timestamp ? new Date(o.timestamp.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--';
+            const time = o.timestamp 
+                ? new Date(o.timestamp.seconds * 1000).toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12: true}) 
+                : '--:--';
+            
+            const tableHtml = o.tableId ? `<div class="table-badge">Table ${o.tableId}</div>` : '';
             const items = o.items.map(i => `<li><span><span class="qty-badge">${i.qty}</span>${i.name}</span></li>`).join('');
             
             let btn = '';
-            if(o.status === 'Received') btn = `<button class="action-btn" onclick="moveStatus('${o.fid}', 'Picking')">Start Picking →</button>`;
-            else if(o.status === 'Picking') btn = `<button class="action-btn" onclick="moveStatus('${o.fid}', 'Ready')">Mark Ready ✓</button>`;
-            else btn = `<button class="action-btn" onclick="markCompleted('${o.fid}')">Complete/Archive</button>`;
+            if(o.status === 'Received') btn = `<button class="action-btn" onclick="moveStatus('${o.fid}', 'Picking')">Start Cooking →</button>`;
+            else if(o.status === 'Picking') btn = `<button class="action-btn" onclick="moveStatus('${o.fid}', 'Ready')">Order Ready ✓</button>`;
+            else btn = `<button class="action-btn" onclick="markCompleted('${o.fid}')">Served / Archive</button>`;
 
             return `
             <div class="card">
-                <div class="card-header"><span class="order-id">#${o.id}</span><span class="order-time">${time}</span></div>
+                <button class="btn-cancel" onclick="cancelOrder('${o.fid}')" title="Cancel Order">×</button>
+                <div class="card-header">
+                    <div class="order-meta"><span class="order-id">#${o.id}</span><span class="order-time">${time}</span></div>
+                    ${tableHtml}
+                </div>
                 <ul class="items-ul">${items}</ul>
                 ${btn}
             </div>`;
@@ -97,9 +135,26 @@
             await db.collection('orders').doc(id).update({ status: status });
         }
         
-        // FIX: Update status to 'Completed' instead of delete()
         async function markCompleted(id) {
-            await db.collection('orders').doc(id).update({ status: 'Completed' });
+            // Save Stop Time
+            await db.collection('orders').doc(id).update({ 
+                status: 'Completed',
+                completedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+
+        async function cancelOrder(id) {
+            const pin = prompt("⚠ SECURITY: Enter Admin PIN to CANCEL this order:");
+            if (pin === STORE_CONFIG.adminPin) {
+                if(confirm("Are you sure? This will remove the order from the dashboard.")) {
+                    await db.collection('orders').doc(id).update({ 
+                        status: 'Cancelled',
+                        cancelledAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            } else {
+                alert("Incorrect PIN! Action denied.");
+            }
         }
     </script>
 </body>
